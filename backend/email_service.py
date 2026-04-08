@@ -1,7 +1,7 @@
 import os
 import resend
 
-SENDER = "SplitSmart <onboarding@resend.dev>"
+SENDER = "SplitSmart <noreply@splitsmrt.com>"
 
 
 def _send(to: str, subject: str, body: str) -> bool:
