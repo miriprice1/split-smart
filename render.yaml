@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: splitsmart
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: splitsmart-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_PATH
+        value: /data/splitsmart.db
+      - key: ALLOWED_ORIGINS
+        value: https://splitsmart.onrender.com   # change to your actual domain
+      - key: RESEND_API_KEY
+        sync: false   # you'll paste this manually in the Render dashboard

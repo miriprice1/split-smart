@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python algorithm.py)",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import main; print\\('Backend imports OK'\\)\")",
+      "Bash(npm run:*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"import main; print\\('OK'\\)\")"
+    ]
+  }
+}
