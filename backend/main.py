@@ -536,7 +536,7 @@ def update_payments(event_id: int, data: PaymentUpdate, current_user=Depends(get
     if not member:
         db.close()
         raise HTTPException(403, "אינך חבר בקבוצה זו")
-    is_admin = member["role"] == "admin"
+    is_admin = member["role"] == "admin" or event["created_by"] == current_user["name"]
     for p in data.payments:
         if not is_admin and p["member_name"] != current_user["name"]:
             continue  # Non-admin can only update their own payment
@@ -561,7 +561,7 @@ def settle_event(event_id: int, current_user=Depends(get_current_user)):
     is_event_manager = (member and member["role"] == "admin") or event["created_by"] == current_user["name"]
     if not is_event_manager:
         db.close()
-        raise HTTPException(403, "רק מנהל האירוע יכול לחשב")
+        raise HTTPException(403, "רק מנהל האירוע יכול לחשב התחשבנות")
 
     payments = db.execute("SELECT member_name, amount FROM payments WHERE event_id = ?", (event_id,)).fetchall()
     payment_dict = {p["member_name"]: p["amount"] for p in payments}

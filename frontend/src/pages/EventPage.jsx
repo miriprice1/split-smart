@@ -378,7 +378,7 @@ export default function EventPage() {
           {Object.entries(payments).map(([name, amount]) => {
             const paid = parseFloat(amount) || 0
             const diff = paid - fairShare
-            const canEdit = isAdmin || name === currentUser
+            const canEdit = isEventManager || name === currentUser
             return (
               <div key={name} className="px-5 py-4 flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center text-sm flex-shrink-0 ${
@@ -431,7 +431,7 @@ export default function EventPage() {
         />
       )}
 
-      {isAdmin ? (
+      {isEventManager ? (
         <>
           <button
             onClick={saveAndCalculate}
