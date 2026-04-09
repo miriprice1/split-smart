@@ -292,10 +292,9 @@ export default function EventPage() {
   const saveAndCalculate = async () => {
     setCalcLoading(true)
     try {
-      const paymentList = Object.entries(payments).map(([member_name, amount]) => ({
-        member_name,
-        amount: parseFloat(amount) || 0,
-      }))
+      const paymentList = isAdmin
+        ? Object.entries(payments).map(([member_name, amount]) => ({ member_name, amount: parseFloat(amount) || 0 }))
+        : [{ member_name: currentUser, amount: parseFloat(payments[currentUser]) || 0 }]
       await api.updatePayments(eventId, paymentList)
       const result = await api.settleEvent(eventId)
       setSettlement(result)
@@ -378,7 +377,7 @@ export default function EventPage() {
           {Object.entries(payments).map(([name, amount]) => {
             const paid = parseFloat(amount) || 0
             const diff = paid - fairShare
-            const canEdit = isEventManager || name === currentUser
+            const canEdit = isAdmin || name === currentUser
             return (
               <div key={name} className="px-5 py-4 flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center text-sm flex-shrink-0 ${

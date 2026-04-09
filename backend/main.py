@@ -536,7 +536,7 @@ def update_payments(event_id: int, data: PaymentUpdate, current_user=Depends(get
     if not member:
         db.close()
         raise HTTPException(403, "אינך חבר בקבוצה זו")
-    is_admin = member["role"] == "admin" or event["created_by"] == current_user["name"]
+    is_admin = member["role"] == "admin"
     for p in data.payments:
         if not is_admin and p["member_name"] != current_user["name"]:
             continue  # Non-admin can only update their own payment
