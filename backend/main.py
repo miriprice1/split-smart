@@ -139,7 +139,7 @@ def _group_row(db, group_id, current_user_id=None, current_user_name=None):
                 my_role = m["role"]
                 break
 
-    # Admin sees all events; members only see events they participate in
+    # Group admin sees all events; event creator and participants see their events
     if my_role == "admin":
         events = db.execute(
             "SELECT id, name, created_by, status, created_at FROM events WHERE group_id = ? ORDER BY created_at DESC",
@@ -148,10 +148,12 @@ def _group_row(db, group_id, current_user_id=None, current_user_name=None):
     elif current_user_name:
         events = db.execute(
             """SELECT id, name, created_by, status, created_at FROM events
-               WHERE group_id = ? AND id IN (
-                 SELECT event_id FROM payments WHERE member_name = ?
+               WHERE group_id = ? AND (
+                 created_by = ? OR id IN (
+                   SELECT event_id FROM payments WHERE member_name = ?
+                 )
                ) ORDER BY created_at DESC""",
-            (group_id, current_user_name),
+            (group_id, current_user_name, current_user_name),
         ).fetchall()
     else:
         events = []
@@ -398,6 +400,7 @@ def create_event(group_id: int, data: EventCreate, current_user=Depends(get_curr
         (group_id, current_user["id"])
     ).fetchone()
     row["is_admin"] = bool(m and m["role"] == "admin")
+    row["is_event_manager"] = True  # creator always manages their own event
     group_members = db.execute(
         "SELECT name FROM members WHERE group_id = ? ORDER BY id", (group_id,)
     ).fetchall()
@@ -417,10 +420,13 @@ def get_event(event_id: int, current_user=Depends(get_current_user)):
         "SELECT role FROM members WHERE group_id = ? AND user_id = ?",
         (row["group_id"], current_user["id"])
     ).fetchone()
-    is_admin = bool(m and m["role"] == "admin")
-    row["is_admin"] = is_admin
-    # Non-admin can only access events they participate in
-    if not is_admin:
+    is_group_admin = bool(m and m["role"] == "admin")
+    is_event_creator = row["created_by"] == current_user["name"]
+    is_event_manager = is_group_admin or is_event_creator
+    row["is_admin"] = is_group_admin
+    row["is_event_manager"] = is_event_manager
+    # Allow access to group admins, event creators, and participants
+    if not is_event_manager:
         participant = db.execute(
             "SELECT id FROM payments WHERE event_id = ? AND member_name = ?",
             (event_id, current_user["name"])
@@ -428,7 +434,7 @@ def get_event(event_id: int, current_user=Depends(get_current_user)):
         if not participant:
             db.close()
             raise HTTPException(403, "אינך משתתף באירוע זה")
-    # Include all group members so admin can manage participants
+    # Include all group members so event manager can manage participants
     group_members = db.execute(
         "SELECT name FROM members WHERE group_id = ? ORDER BY id",
         (row["group_id"],)
@@ -449,9 +455,10 @@ def update_participants(event_id: int, data: ParticipantsUpdate, current_user=De
         "SELECT role FROM members WHERE group_id = ? AND user_id = ?",
         (event["group_id"], current_user["id"])
     ).fetchone()
-    if not member or member["role"] != "admin":
+    is_event_manager = (member and member["role"] == "admin") or event["created_by"] == current_user["name"]
+    if not is_event_manager:
         db.close()
-        raise HTTPException(403, "רק מנהל הקבוצה יכול לעדכן משתתפים")
+        raise HTTPException(403, "רק מנהל האירוע יכול לעדכן משתתפים")
     if not data.participants:
         db.close()
         raise HTTPException(400, "לפחות משתתף אחד נדרש")
@@ -473,7 +480,8 @@ def update_participants(event_id: int, data: ParticipantsUpdate, current_user=De
 
     db.commit()
     row = _event_row(db, event_id)
-    row["is_admin"] = True
+    row["is_admin"] = bool(member and member["role"] == "admin")
+    row["is_event_manager"] = True
     group_members = db.execute(
         "SELECT name FROM members WHERE group_id = ? ORDER BY id",
         (event["group_id"],)
@@ -496,13 +504,15 @@ def rename_event(event_id: int, data: EventRename, current_user=Depends(get_curr
         "SELECT role FROM members WHERE group_id = ? AND user_id = ?",
         (event["group_id"], current_user["id"])
     ).fetchone()
-    if not member or member["role"] != "admin":
+    is_event_manager = (member and member["role"] == "admin") or event["created_by"] == current_user["name"]
+    if not is_event_manager:
         db.close()
-        raise HTTPException(403, "רק מנהל הקבוצה יכול לשנות שם")
+        raise HTTPException(403, "רק מנהל האירוע יכול לשנות שם")
     db.execute("UPDATE events SET name = ? WHERE id = ?", (data.name.strip(), event_id))
     db.commit()
     row = _event_row(db, event_id)
-    row["is_admin"] = True
+    row["is_admin"] = bool(member and member["role"] == "admin")
+    row["is_event_manager"] = True
     group_members = db.execute(
         "SELECT name FROM members WHERE group_id = ? ORDER BY id",
         (event["group_id"],)
@@ -548,9 +558,10 @@ def settle_event(event_id: int, current_user=Depends(get_current_user)):
         "SELECT role FROM members WHERE group_id = ? AND user_id = ?",
         (event["group_id"], current_user["id"])
     ).fetchone()
-    if not member or member["role"] != "admin":
+    is_event_manager = (member and member["role"] == "admin") or event["created_by"] == current_user["name"]
+    if not is_event_manager:
         db.close()
-        raise HTTPException(403, "רק מנהל הקבוצה יכול לחשב")
+        raise HTTPException(403, "רק מנהל האירוע יכול לחשב")
 
     payments = db.execute("SELECT member_name, amount FROM payments WHERE event_id = ?", (event_id,)).fetchall()
     payment_dict = {p["member_name"]: p["amount"] for p in payments}

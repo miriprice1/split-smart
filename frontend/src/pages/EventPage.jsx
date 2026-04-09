@@ -266,6 +266,7 @@ export default function EventPage() {
   }, [eventId])
 
   const isAdmin = event?.is_admin || false
+  const isEventManager = event?.is_event_manager || false
 
   const updatePayment = (name, val) => {
     setPayments(prev => ({ ...prev, [name]: val }))
@@ -364,7 +365,7 @@ export default function EventPage() {
             )}
             <div className="text-gray-400">{n} משתתפים</div>
           </p>
-          {isAdmin && event.status !== 'completed' && (
+          {isEventManager && event.status !== 'completed' && (
             <button
               onClick={() => setShowParticipants(true)}
               className="flex-shrink-0 text-xs text-indigo-600 border border-indigo-200 bg-white px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors font-medium"
